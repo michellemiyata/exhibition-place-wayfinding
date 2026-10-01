@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exhibition Place Wayfinding Map — Interactive Experience</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      background-color: #f1f5f9;
+      color: #1e293b;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    .poster-shadow {
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .sketch-pill {
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.12em;
+    }
+    .map-pin {
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+    }
+    .map-pin:hover {
+      transform: scale(1.3) translateY(-4px);
+    }
+    .route-path {
+      stroke-dasharray: 8, 8;
+      animation: dashAnimation 1s linear infinite;
+    }
+    @keyframes dashAnimation {
+      from { stroke-dashoffset: 32; }
+      to { stroke-dashoffset: 0; }
+    }
+    .spin-slow {
+      animation: spin 18s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .float-anim {
+      animation: floating 3s ease-in-out infinite;
+    }
+    @keyframes floating {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    body.high-contrast-mode {
+      background-color: #000000 !important;
+      color: #ffffff !important;
+    }
+    body.high-contrast-mode .main-board {
+      background-color: #0b0f19 !important;
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.3) !important;
+    }
+    body.high-contrast-mode .info-card {
+      background-color: #111827 !important;
+      border-width: 2px !important;
+      color: #f8fafc !important;
+    }
+    body.high-contrast-mode .info-card p, 
+    body.high-contrast-mode .info-card li {
+      color: #e2e8f0 !important;
+    }
+    body.high-contrast-mode .phone-mockup {
+      border-color: #38bdf8 !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 lg:p-8 flex flex-col items-center justify-center font-sans antialiased transition-colors duration-300">
+
+  <!-- Top Global Action Bar -->
+  <div class="w-full max-w-[1400px] mb-4 flex flex-wrap items-center justify-between gap-3 px-2">
+    <div class="flex items-center gap-2">
+      <div class="inline-flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs font-semibold text-slate-700">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+        <span>Interactive Mode Active</span>
+      </div>
+      <span class="text-xs text-slate-500 hidden sm:inline">Click pins, personas, events, and phones to explore!</span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Quick Persona Filter Trigger -->
+      <div class="flex items-center bg-white rounded-full border border-slate-200 p-1 shadow-sm text-xs">
+        <span class="px-2.5 font-medium text-slate-500">Preset View:</span>
+        <button onclick="setPersonaPreset('mobility')" id="btn-preset-mobility" class="px-2.5 py-1 rounded-full font-medium transition bg-sky-100 text-sky-800 font-bold">♿ Mobility</button>
+        <button onclick="setPersonaPreset('sensory')" id="btn-preset-sensory" class="px-2.5 py-1 rounded-full font-medium transition text-slate-600 hover:bg-slate-100">🎧 Low Sensory</button>
+        <button onclick="setPersonaPreset('family')" id="btn-preset-family" class="px-2.5 py-1 rounded-full font-medium transition text-slate-600 hover:bg-slate-100">👨‍👩‍👧 Family</button>
+        <button onclick="resetAllFilters()" class="px-2 py-1 text-slate-400 hover:text-slate-700" title="Reset Filters">↺</button>
+      </div>
+
+      <!-- High Contrast Toggle -->
+      <button onclick="toggleHighContrast()" id="contrastToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 shadow-sm text-xs font-semibold text-slate-700 transition">
+        <span>👁️</span> High Contrast
+      </button>
+
+      <!-- Audio Narration button -->
+      <button onclick="playOverviewAudio()" id="audioOverviewBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-sm text-xs font-semibold transition">
+        <span id="audioIcon">🔊</span> <span id="audioText">Read Case Study</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN POSTER BOARD (Exact 1:1 Layout representation) -->
+  <main class="main-board w-full max-w-[1400px] bg-white rounded-2xl md:rounded-3xl poster-shadow border border-slate-200/80 p-5 md:p-8 lg:p-10 relative overflow-hidden transition-colors duration-300">
+    
+    <!-- Top Header Ribbon & Skyline Illustration -->
+    <header class="relative mb-6 border-b border-slate-100 pb-6">
+      <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        
+        <!-- Left Title & Badge -->
+        <div>
+          <div class="inline-block bg-slate-900 text-white text-[11px] uppercase tracking-wider font-bold px-3 py-1 rounded-md mb-2 shadow-sm">
+            Exhibition Place Wayfinding Map
+          </div>
+          <h1 class="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight font-display text-slate-900 italic flex items-center gap-2">
+            EXHIBITION PLACE
+          </h1>
+          <h2 class="text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight font-display text-slate-800 italic flex items-center gap-3">
+            <span>WAYFINDING MAP</span>
+            <span class="h-1 w-16 bg-rose-400 rounded-full inline-block not-italic"></span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1 font-sans not-italic">Inclusive Digital Wayfinding Experience Design</p>
+        </div>
+
+        <!-- Right Skyline Vector Artwork & Credit -->
+        <div class="w-full lg:w-auto flex-1 max-w-xl flex flex-col items-end">
+          <div class="text-[10px] text-slate-400 font-sans tracking-wide mb-1 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>Toronto Exhibition Place Waterfront Panoramic Vista</span>
+          </div>
+
+          <!-- Dynamic SVG Skyline Art -->
+          <div class="w-full h-20 md:h-24 bg-gradient-to-b from-sky-50 to-emerald-50/30 rounded-xl border border-sky-100 p-1 relative overflow-hidden flex items-end justify-center">
+            <svg class="w-full h-full" viewBox="0 0 600 100" fill="none" preserveAspectRatio="xMidYMax meet">
+              <defs>
+                <linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4" />
+                  <stop offset="100%" stop-color="#0284c7" stop-opacity="0.8" />
+                </linearGradient>
+              </defs>
+
+              <!-- Clouds -->
+              <path d="M 50,25 Q 65,15 80,25 Q 95,15 110,25 Q 120,35 105,40 Q 50,40 50,25 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M 380,20 Q 395,10 410,20 Q 425,12 440,20 Q 450,30 435,35 Q 380,35 380,20 Z" fill="#ffffff" opacity="0.8"/>
+
+              <!-- CN Tower -->
+              <path d="M 470,90 L 470,25 L 468,25 L 468,10 L 472,10 L 472,25 L 470,25 Z" fill="#0284c7" opacity="0.75"/>
+              <circle cx="470" cy="35" r="5" fill="#0284c7" opacity="0.9"/>
+              <line x1="470" y1="10" x2="470" y2="2" stroke="#0284c7" stroke-width="1.5"/>
+
+              <!-- Enercare & Coliseum Domes -->
+              <path d="M 340,90 Q 375,45 410,90 Z" fill="#38bdf8" opacity="0.5"/>
+              <path d="M 355,90 Q 375,60 395,90 Z" fill="#0284c7" opacity="0.4"/>
+              
+              <!-- Princes' Gate Monument Columns -->
+              <rect x="495" y="55" width="40" height="35" fill="#bae6fd" opacity="0.6" rx="2"/>
+              <rect x="500" y="60" width="4" height="30" fill="#0284c7" opacity="0.7"/>
+              <rect x="510" y="60" width="4" height="30" fill="#0284c7" opacity="0.7"/>
+              <rect x="520" y="60" width="4" height="30" fill="#0284c7" opacity="0.7"/>
+              <rect x="530" y="60" width="4" height="30" fill="#0284c7" opacity="0.7"/>
+              <path d="M 490,55 Q 515,40 540,55 Z" fill="#0369a1" opacity="0.7"/>
+
+              <!-- Ferris Wheel (Animated) -->
+              <g transform="translate(160, 58)">
+                <line x1="0" y1="0" x2="-18" y2="32" stroke="#0369a1" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="18" y2="32" stroke="#0369a1" stroke-width="2.5"/>
+                <g class="spin-slow" style="transform-origin: 0px 0px;">
+                  <circle cx="0" cy="0" r="28" stroke="#0284c7" stroke-width="2" fill="none" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="0" r="14" stroke="#38bdf8" stroke-width="1.5" fill="none"/>
+                  <line x1="-28" y1="0" x2="28" y2="0" stroke="#0284c7" stroke-width="1"/>
+                  <line x1="0" y1="-28" x2="0" y2="28" stroke="#0284c7" stroke-width="1"/>
+                  <circle cx="0" cy="-28" r="2.5" fill="#f43f5e"/>
+                  <circle cx="28" cy="0" r="2.5" fill="#f59e0b"/>
+                  <circle cx="0" cy="28" r="2.5" fill="#10b981"/>
+                  <circle cx="-28" cy="0" r="2.5" fill="#8b5cf6"/>
+                </g>
+                <circle cx="0" cy="0" r="4" fill="#0f172a"/>
+              </g>
+
+              <!-- Trees -->
+              <circle cx="240" cy="85" r="12" fill="#10b981" opacity="0.6"/>
+              <circle cx="255" cy="82" r="15" fill="#059669" opacity="0.7"/>
+              <circle cx="270" cy="86" r="10" fill="#34d399" opacity="0.6"/>
+
+              <!-- Lake Ontario -->
+              <path d="M 0,92 Q 75,85 150,92 T 300,92 T 450,92 T 600,92 L 600,100 L 0,100 Z" fill="url(#waterGrad)"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- GRID LAYOUT -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+      <!-- LEFT COLUMN: WHY & WHO & WHAT -->
+      <div class="lg:col-span-3 flex flex-col gap-5">
+        
+        <!-- CARD 1: WHY -->
+        <section class="info-card bg-rose-50/70 border-2 border-rose-200/90 rounded-2xl p-4 md:p-5 transition hover:shadow-md hover:border-rose-300 relative group">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-8 h-8 rounded-full bg-rose-200 flex items-center justify-center text-rose-700 text-lg shadow-inner">🎯</span>
+            <div class="bg-rose-200/80 text-rose-900 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full sketch-pill flex items-center gap-1.5">
+              <span>W H Y</span>
+            </div>
+            <button onclick="speakSection('why')" class="ml-auto text-xs text-rose-600 hover:text-rose-900 opacity-0 group-hover:opacity-100 transition p-1" title="Read WHY aloud">🔊</button>
+          </div>
+          
+          <p class="text-[13px] leading-relaxed text-slate-700 font-normal">
+            I want to improve navigation at <strong class="font-semibold text-slate-900">Exhibition Place</strong> for visitors with various accessibility needs. The large grounds, multiple venues, crowds, and changing events make it hard to find accessible routes, entrances, and destinations.
+          </p>
+
+          <div class="mt-3 pt-3 border-t border-rose-200/60 flex flex-wrap gap-1.5">
+            <button onclick="highlightFeature('crowds')" class="text-[11px] font-medium bg-white/80 hover:bg-white text-rose-700 px-2 py-0.5 rounded-md border border-rose-200 transition">📍 Dynamic Crowds</button>
+            <button onclick="highlightFeature('entrances')" class="text-[11px] font-medium bg-white/80 hover:bg-white text-rose-700 px-2 py-0.5 rounded-md border border-rose-200 transition">🚪 Complex Entrances</button>
+          </div>
+        </section>
+
+        <!-- CARD 2: WHO -->
+        <section class="info-card bg-sky-50/80 border-2 border-sky-200/90 rounded-2xl p-4 md:p-5 transition hover:shadow-md hover:border-sky-300 relative group">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-8 h-8 rounded-full bg-sky-200 flex items-center justify-center text-sky-800 text-lg shadow-inner">👥</span>
+            <div class="bg-sky-200/90 text-sky-900 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full sketch-pill">W H O</div>
+            <button onclick="speakSection('who')" class="ml-auto text-xs text-sky-600 hover:text-sky-900 opacity-0 group-hover:opacity-100 transition p-1" title="Read WHO aloud">🔊</button>
+          </div>
+
+          <p class="text-[11px] text-slate-500 mb-2 font-medium">Click a user profile to simulate their needs on the map:</p>
+
+          <ul class="space-y-2 text-[12.5px] text-slate-700">
+            <li>
+              <button onclick="setPersonaPreset('mobility')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span class="font-medium text-slate-800">People with Mobility needs</span>
+                <span class="ml-auto text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded">Ramps/Elevators</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setPersonaPreset('sensory')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span>People with cognitive sensitivities</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setPersonaPreset('sensory')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span>People with Visual or hearing accessibility needs</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setPersonaPreset('sensory')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span>People who experience cognitive overload</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setPersonaPreset('family')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span>Older adults</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setPersonaPreset('family')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span>Families</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setPersonaPreset('general')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2 group/item">
+                <span class="w-2 h-2 rounded-full bg-sky-400 group-hover/item:scale-125 transition"></span>
+                <span>Visitors who are unfamiliar with Exhibition Place</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- CARD 3: WHAT -->
+        <section class="info-card bg-teal-50/80 border-2 border-teal-200/90 rounded-2xl p-4 md:p-5 transition hover:shadow-md hover:border-teal-300 relative group">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-8 h-8 rounded-full bg-teal-200 flex items-center justify-center text-teal-800 text-lg shadow-inner">💡</span>
+            <div class="bg-teal-200/90 text-teal-900 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full sketch-pill">W H A T</div>
+            <button onclick="speakSection('what')" class="ml-auto text-xs text-teal-600 hover:text-teal-900 opacity-0 group-hover:opacity-100 transition p-1" title="Read WHAT aloud">🔊</button>
+          </div>
+          
+          <p class="text-[13px] leading-relaxed text-slate-700">
+            An accessible digital wayfinding system at Exhibition Place that assists visitors in navigating routes according to their mobility needs, accessible entrances, amenities, destinations, and event locations.
+          </p>
+
+          <div class="mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-teal-800">
+            <div class="bg-white/80 p-2 rounded-lg border border-teal-200 flex items-center gap-1.5">
+              <span>♿</span> Step-Free Routes
+            </div>
+            <div class="bg-white/80 p-2 rounded-lg border border-teal-200 flex items-center gap-1.5">
+              <span>📱</span> AR Street Guidance
+            </div>
+            <div class="bg-white/80 p-2 rounded-lg border border-teal-200 flex items-center gap-1.5">
+              <span>🎧</span> Sensory Heatmaps
+            </div>
+            <div class="bg-white/80 p-2 rounded-lg border border-teal-200 flex items-center gap-1.5">
+              <span>🚻</span> Accessible Amenities
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- CENTER COLUMN: ISOMETRIC MAP & PHONE MOCKUPS -->
+      <div class="lg:col-span-6 flex flex-col gap-6">
+
+        <!-- 1. ISOMETRIC VENUE MAP CANVAS / SVG -->
+        <div class="bg-gradient-to-b from-slate-50 to-sky-50/50 rounded-2xl border-2 border-slate-200 p-3 md:p-4 relative shadow-sm overflow-hidden">
+          
+          <div class="flex items-center justify-between px-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Interactive Venue Grounds</span>
+              <span id="activeEventBadge" class="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200">
+                All Venues Active
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-400 font-medium">Click pins to inspect accessibility details</div>
+          </div>
+
+          <div class="relative w-full h-[320px] md:h-[370px] bg-sky-100/40 rounded-xl overflow-hidden border border-slate-200/70 select-none">
+            
+            <svg id="isometricMapSvg" class="w-full h-full" viewBox="0 0 700 450" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <radialGradient id="lakeShimmer" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#bae6fd" stop-opacity="0.9"/>
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.5"/>
+                </radialGradient>
+                <linearGradient id="bmoPitch" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#15803d" />
+                  <stop offset="100%" stop-color="#166534" />
+                </linearGradient>
+                <linearGradient id="buildingRoof" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#f8fafc" />
+                  <stop offset="100%" stop-color="#e2e8f0" />
+                </linearGradient>
+                <filter id="mapShadow" x="-10%" y="-10%" width="130%" height="130%">
+                  <feDropShadow dx="2" dy="8" stdDeviation="6" flood-opacity="0.15"/>
+                </filter>
+              </defs>
+
+              <!-- Grass Base -->
+              <polygon points="50,180 350,30 650,180 350,350" fill="#dcfce7" stroke="#bbf7d0" stroke-width="2"/>
+              <path d="M 120,330 Q 350,420 580,330 L 650,390 L 50,390 Z" fill="url(#lakeShimmer)"/>
+              <text x="350" y="415" text-anchor="middle" font-size="14" font-family="'Caveat', cursive" font-weight="bold" fill="#0284c7">Lake Ontario</text>
+
+              <!-- Walkways Grid -->
+              <polygon points="200,105 230,90 490,240 460,255" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+              <polygon points="120,230 430,70 455,85 145,245" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+              <polygon points="300,280 570,140 590,152 320,292" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+
+              <!-- Trees -->
+              <g fill="#22c55e" opacity="0.8">
+                <circle cx="210" cy="170" r="8"/>
+                <circle cx="225" cy="165" r="9"/>
+                <circle cx="200" cy="180" r="7"/>
+                <circle cx="280" cy="220" r="8"/>
+                <circle cx="330" cy="250" r="9"/>
+                <circle cx="480" cy="190" r="8"/>
+              </g>
+
+              <!-- BMO FIELD -->
+              <g id="venue-bmo" class="cursor-pointer" onclick="selectVenue('bmo')" filter="url(#mapShadow)">
+                <text x="145" y="145" font-size="13" font-weight="bold" fill="#0f172a">BMO Field</text>
+                <polygon points="110,210 190,160 270,205 190,255" fill="#94a3b8" stroke="#64748b" stroke-width="2"/>
+                <polygon points="110,210 190,255 190,270 110,225" fill="#64748b"/>
+                <polygon points="190,255 270,205 270,220 190,270" fill="#475569"/>
+                <polygon points="135,210 190,175 245,205 190,240" fill="#dc2626"/>
+                <polygon points="150,210 190,185 230,205 190,230" fill="url(#bmoPitch)" stroke="#ffffff" stroke-width="1"/>
+              </g>
+
+              <!-- CNE MIDWAY -->
+              <g id="venue-midway" class="cursor-pointer" onclick="selectVenue('midway')">
+                <text x="270" y="115" font-size="13" font-weight="bold" fill="#0f172a">CNE Midway</text>
+                <polygon points="255,145 270,135 285,145 270,160" fill="#f43f5e"/>
+                <polygon points="270,135 270,120 285,145" fill="#fde047"/>
+                <polygon points="285,155 300,145 315,155 300,170" fill="#3b82f6"/>
+                <circle cx="280" cy="140" r="14" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="2,2"/>
+              </g>
+
+              <!-- COCA-COLA COLISEUM -->
+              <g id="venue-coliseum" class="cursor-pointer" onclick="selectVenue('coliseum')" filter="url(#mapShadow)">
+                <text x="440" y="115" font-size="13" font-weight="bold" fill="#0f172a">Coca-Cola Coliseum</text>
+                <polygon points="410,150 490,110 560,150 480,190" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/>
+                <polygon points="410,150 480,190 480,205 410,165" fill="#94a3b8"/>
+                <polygon points="480,190 560,150 560,165 480,205" fill="#64748b"/>
+                <ellipse cx="485" cy="148" rx="45" ry="22" fill="#ef4444" opacity="0.85"/>
+                <ellipse cx="485" cy="146" rx="35" ry="16" fill="#fee2e2"/>
+              </g>
+
+              <!-- ENERCARE CENTRE -->
+              <g id="venue-enercare" class="cursor-pointer" onclick="selectVenue('enercare')" filter="url(#mapShadow)">
+                <text x="560" y="180" font-size="13" font-weight="bold" fill="#0f172a">Enercare Centre</text>
+                <polygon points="500,210 580,165 650,205 570,250" fill="url(#buildingRoof)" stroke="#94a3b8" stroke-width="2"/>
+                <polygon points="500,210 570,250 570,265 500,225" fill="#94a3b8"/>
+                <polygon points="570,250 650,205 650,220 570,265" fill="#64748b"/>
+              </g>
+
+              <!-- TRANSIT HUB -->
+              <g id="venue-transit" class="cursor-pointer" onclick="selectVenue('transit')">
+                <polygon points="320,60 360,40 400,62 360,82" fill="#10b981" stroke="#059669" stroke-width="1.5"/>
+                <text x="360" y="32" text-anchor="middle" font-size="11" font-weight="bold" fill="#065f46">🚆 Exhibition GO Hub</text>
+              </g>
+
+              <!-- ROUTE OVERLAY -->
+              <path id="activeRouteLine" class="route-path" d="M 360,75 L 340,110 L 290,140 L 250,180 L 210,195" fill="none" stroke="#0284c7" stroke-width="5" stroke-linecap="round"/>
+              <circle cx="360" cy="75" r="5" fill="#0284c7"/>
+              <circle cx="210" cy="195" r="6" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+
+              <!-- SENSORY ZONE OVERLAY -->
+              <g id="quietZoneLayer" class="transition-opacity duration-300 opacity-0 pointer-events-none">
+                <ellipse cx="330" cy="270" rx="45" ry="25" fill="#8b5cf6" opacity="0.35"/>
+                <text x="330" y="275" text-anchor="middle" font-size="10" font-weight="bold" fill="#6d28d9">🌿 Quiet Sensory Garden</text>
+              </g>
+
+              <!-- CROWD HEATMAP -->
+              <g id="crowdHeatmapLayer" class="transition-opacity duration-300 opacity-0 pointer-events-none">
+                <ellipse cx="280" cy="150" rx="55" ry="30" fill="#ef4444" opacity="0.3"/>
+                <ellipse cx="485" cy="150" rx="50" ry="28" fill="#f97316" opacity="0.3"/>
+                <text x="280" y="153" text-anchor="middle" font-size="9" font-weight="bold" fill="#991b1b">⚠️ High Crowd Density</text>
+              </g>
+
+              <!-- PINS -->
+              <g class="map-pin" onclick="showPinDetails('bmo-gate', 'BMO Field Gate 1', 'Step-Free Ramp & Power Assisted Doors', '♿ Accessible Entrance')">
+                <circle cx="210" cy="195" r="14" fill="#0284c7" stroke="#ffffff" stroke-width="2"/>
+                <text x="210" y="200" text-anchor="middle" font-size="12" fill="#ffffff">♿</text>
+              </g>
+
+              <g class="map-pin" onclick="showPinDetails('washroom-midway', 'Midway Family Restroom', 'All-gender, adult change table, hoist equipped', '🚻 Universal Washroom')">
+                <circle cx="310" cy="180" r="13" fill="#0284c7" stroke="#ffffff" stroke-width="2"/>
+                <text x="310" y="185" text-anchor="middle" font-size="11" fill="#ffffff">🚻</text>
+              </g>
+
+              <g class="map-pin" onclick="showPinDetails('enercare-elevator', 'Enercare East Concourse', 'Wide glass elevator directly to exhibition hall B', '🛗 Direct Elevator')">
+                <circle cx="530" cy="225" r="13" fill="#0284c7" stroke="#ffffff" stroke-width="2"/>
+                <text x="530" y="230" text-anchor="middle" font-size="11" fill="#ffffff">🛗</text>
+              </g>
+
+              <g class="map-pin" onclick="showPinDetails('coliseum-gate', 'Coca-Cola Coliseum Gate A', 'Level entrance with tactile ground pavers & audio beacon', '♿ Coliseum Accessible Gate')">
+                <circle cx="440" cy="165" r="13" fill="#0284c7" stroke="#ffffff" stroke-width="2"/>
+                <text x="440" y="170" text-anchor="middle" font-size="11" fill="#ffffff">♿</text>
+              </g>
+
+              <g class="map-pin" onclick="showPinDetails('quiet-zone', 'Bandshell Park Quiet Area', 'Low noise, shaded benches, sensory decompression kits available', '🎧 Sensory Relief')">
+                <circle cx="340" cy="265" r="13" fill="#8b5cf6" stroke="#ffffff" stroke-width="2"/>
+                <text x="340" y="270" text-anchor="middle" font-size="11" fill="#ffffff">🎧</text>
+              </g>
+
+              <g class="map-pin" onclick="showPinDetails('food-hub', 'Princes\' Boulevard Food Court', 'Accessible counter heights, braille menus, allergen filters', '🍔 Accessible Dining')">
+                <circle cx="390" cy="210" r="13" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
+                <text x="390" y="215" text-anchor="middle" font-size="11" fill="#ffffff">🍔</text>
+              </g>
+            </svg>
+
+            <!-- FLOATING ROUTE FILTER POPOVER -->
+            <div class="absolute right-3 bottom-3 md:right-4 md:bottom-4 w-52 md:w-56 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200 p-3 shadow-xl transition-all">
+              <div class="flex items-center justify-between mb-1.5">
+                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>Get There Your Way</span>
+                </h4>
+                <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">Route filter</span>
+              </div>
+              <p class="text-[10px] text-slate-500 mb-2 leading-tight">Choose what you need for your route:</p>
+
+              <div class="grid grid-cols-2 gap-1.5 text-[10px] mb-2.5">
+                <button onclick="toggleFilter('stepfree')" id="filter-stepfree" class="flex flex-col items-center justify-center p-1.5 rounded-lg border bg-sky-50 border-sky-300 text-sky-800 font-semibold transition">
+                  <span class="text-xs">♿</span>
+                  <span class="text-[9px]">Step-free</span>
+                </button>
+                <button onclick="toggleFilter('quiet')" id="filter-quiet" class="flex flex-col items-center justify-center p-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 font-medium transition hover:bg-purple-50 hover:text-purple-700">
+                  <span class="text-xs">🎧</span>
+                  <span class="text-[9px]">Quieter</span>
+                </button>
+                <button onclick="toggleFilter('rest')" id="filter-rest" class="flex flex-col items-center justify-center p-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 font-medium transition hover:bg-amber-50 hover:text-amber-700">
+                  <span class="text-xs">🪑</span>
+                  <span class="text-[9px]">Rest areas</span>
+                </button>
+                <button onclick="toggleFilter('simple')" id="filter-simple" class="flex flex-col items-center justify-center p-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 font-medium transition hover:bg-emerald-50 hover:text-emerald-700">
+                  <span class="text-xs">🔤</span>
+                  <span class="text-[9px]">Simplified</span>
+                </button>
+                <button onclick="toggleFilter('contrast')" id="filter-contrast" class="flex flex-col items-center justify-center p-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 font-medium transition hover:bg-indigo-50 hover:text-indigo-700">
+                  <span class="text-xs">👁️</span>
+                  <span class="text-[9px]">High-contrast</span>
+                </button>
+                <button onclick="toggleFilter('washroom')" id="filter-washroom" class="flex flex-col items-center justify-center p-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 font-medium transition hover:bg-teal-50 hover:text-teal-700">
+                  <span class="text-xs">🚻</span>
+                  <span class="text-[9px]">Accessible W/C</span>
+                </button>
+              </div>
+
+              <button onclick="simulateRouteCalculation()" class="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition">
+                <span id="routeBtnText">Find My Route</span>
+                <span>→</span>
+              </button>
+            </div>
+
+            <!-- Pin Toast -->
+            <div id="pinToast" class="absolute top-3 left-3 right-3 md:right-auto md:w-80 bg-slate-900 text-white rounded-xl p-3 shadow-2xl transition-all duration-300 transform -translate-y-20 opacity-0 pointer-events-none z-20 flex items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span id="pinTypeBadge" class="text-[10px] bg-sky-500 text-white px-2 py-0.5 rounded font-bold uppercase"></span>
+                  <h5 id="pinTitle" class="text-xs font-bold"></h5>
+                </div>
+                <p id="pinDesc" class="text-[11px] text-slate-300 mt-1 leading-snug"></p>
+                <button onclick="navigateHere()" class="mt-2 text-[10px] font-semibold bg-sky-400 text-slate-950 px-2 py-1 rounded hover:bg-sky-300 transition">
+                  Navigate Here on Mobile ↓
+                </button>
+              </div>
+              <button onclick="dismissPinToast()" class="text-slate-400 hover:text-white text-sm">✕</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 2. INTERACTIVE 3-SCREEN MOBILE WAYFINDING PROTOTYPE FLOW -->
+        <div class="bg-slate-50/80 rounded-2xl border-2 border-slate-200/90 p-4 relative">
+          
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Mobile Wayfinding Flow Prototype</span>
+              <p class="text-[11px] text-slate-500">Step 1: Search & Filters → Step 2: Route Preview → Step 3: Live AR Guidance</p>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <button onclick="setMobileScreen(1)" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 font-semibold hover:bg-slate-100">1</button>
+              <button onclick="setMobileScreen(2)" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 font-semibold hover:bg-slate-100">2</button>
+              <button onclick="setMobileScreen(3)" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 font-semibold hover:bg-slate-100">3</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center justify-center">
+
+            <!-- PHONE 1 -->
+            <div class="phone-mockup bg-slate-900 p-2.5 rounded-[36px] shadow-xl border-4 border-slate-800 max-w-[240px] mx-auto w-full transition hover:scale-[1.02]">
+              <div class="bg-white rounded-[28px] overflow-hidden p-3 h-[380px] flex flex-col relative text-slate-800">
+                <div class="w-20 h-4 bg-slate-900 rounded-full mx-auto mb-2 flex items-center justify-center">
+                  <div class="w-2 h-2 rounded-full bg-slate-800 mr-2"></div>
+                  <div class="w-1.5 h-1.5 rounded-full bg-indigo-950"></div>
+                </div>
+
+                <div class="flex-1 flex flex-col">
+                  <h4 class="text-xs font-bold text-slate-900 mb-1 leading-tight">Where do you want to go?</h4>
+                  <div class="bg-slate-100 rounded-xl p-2 flex items-center gap-2 mb-3 border border-slate-200">
+                    <span class="text-xs text-slate-400">🔍</span>
+                    <input type="text" id="mobileSearchInput" placeholder="Search venues..." value="BMO Field" class="bg-transparent text-[11px] outline-none w-full font-medium text-slate-700">
+                  </div>
+
+                  <div class="space-y-1.5 overflow-y-auto custom-scroll pr-1 flex-1 text-[11px]">
+                    <button onclick="selectDestination('BMO Field Accessible Entrance', 8, 'Step-free route')" class="w-full flex items-center gap-2 p-2 rounded-xl bg-sky-50 border border-sky-200 text-left transition hover:bg-sky-100">
+                      <span class="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs">🏟️</span>
+                      <div>
+                        <div class="font-bold text-slate-900">BMO Field</div>
+                        <div class="text-[9px] text-sky-700">Gate 1 Accessible Entrance</div>
+                      </div>
+                    </button>
+                    <button onclick="selectDestination('CNE Midway & Carnival', 5, 'Low-crowd bypass')" class="w-full flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200 text-left transition hover:bg-slate-100">
+                      <span class="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs">🎡</span>
+                      <div>
+                        <div class="font-bold text-slate-800">CNE Midway</div>
+                        <div class="text-[9px] text-slate-500">Rides & Games</div>
+                      </div>
+                    </button>
+                    <button onclick="selectDestination('Food & Dining District', 4, 'Step-free paved')" class="w-full flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200 text-left transition hover:bg-slate-100">
+                      <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">🍴</span>
+                      <div>
+                        <div class="font-bold text-slate-800">Food & Dining</div>
+                        <div class="text-[9px] text-slate-500">Princes' Blvd</div>
+                      </div>
+                    </button>
+                    <button onclick="selectDestination('Universal Restrooms', 3, 'Hoist equipped')" class="w-full flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200 text-left transition hover:bg-slate-100">
+                      <span class="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs">🚻</span>
+                      <div>
+                        <div class="font-bold text-slate-800">Restrooms</div>
+                        <div class="text-[9px] text-slate-500">All-Gender</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-100 flex justify-around text-slate-400 text-xs">
+                  <span class="text-sky-600 font-bold">📍 Map</span>
+                  <span>🔍 Search</span>
+                  <span>♿ Saved</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- PHONE 2 -->
+            <div class="phone-mockup bg-slate-900 p-2.5 rounded-[36px] shadow-xl border-4 border-slate-800 max-w-[240px] mx-auto w-full transition hover:scale-[1.02]">
+              <div class="bg-white rounded-[28px] overflow-hidden p-3 h-[380px] flex flex-col relative text-slate-800">
+                <div class="w-20 h-4 bg-slate-900 rounded-full mx-auto mb-2 flex items-center justify-center">
+                  <div class="w-2 h-2 rounded-full bg-slate-800 mr-2"></div>
+                  <div class="w-1.5 h-1.5 rounded-full bg-indigo-950"></div>
+                </div>
+
+                <div class="bg-sky-50 border border-sky-200 rounded-xl p-2.5 mb-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <h5 id="destTitle" class="text-[11px] font-bold text-slate-900 truncate">BMO Field Accessible Entrance</h5>
+                  </div>
+                  <div class="flex items-center justify-between mt-1 text-[10px] text-sky-800 font-semibold">
+                    <span id="destTime">⏱️ 8 min (620 m)</span>
+                    <span class="bg-sky-200/80 px-1.5 py-0.5 rounded text-[9px]">♿ Step-free</span>
+                  </div>
+                </div>
+
+                <div class="flex-1 bg-slate-100 rounded-xl border border-slate-200 overflow-hidden relative mb-2">
+                  <svg class="w-full h-full" viewBox="0 0 200 200">
+                    <rect width="200" height="200" fill="#e2e8f0"/>
+                    <rect x="20" y="20" width="160" height="160" fill="#f8fafc" rx="8"/>
+                    <path d="M 0,100 Q 100,80 200,100" stroke="#cbd5e1" stroke-width="12" fill="none"/>
+                    <path d="M 100,0 Q 80,100 100,200" stroke="#cbd5e1" stroke-width="12" fill="none"/>
+                    <rect x="130" y="120" width="50" height="50" fill="#fca5a5" rx="6"/>
+                    <text x="155" y="150" font-size="8" font-weight="bold" fill="#7f1d1d" text-anchor="middle">BMO</text>
+                    <path d="M 50,60 L 50,95 L 140,95 L 140,120" fill="none" stroke="#0284c7" stroke-width="4" stroke-dasharray="4,4" class="route-path"/>
+                    <circle cx="50" cy="60" r="6" fill="#10b981"/>
+                    <circle cx="140" cy="120" r="7" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+                  </svg>
+                  <div class="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur text-white text-[9px] px-2 py-1 rounded-md font-medium">
+                    📍 Turn Right in 30 m
+                  </div>
+                </div>
+
+                <button onclick="startARNavigation()" class="w-full bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-2 shadow transition">
+                  <span>Start Live Guidance</span>
+                  <span>🚶‍♂️</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- PHONE 3 -->
+            <div class="phone-mockup bg-slate-900 p-2.5 rounded-[36px] shadow-xl border-4 border-slate-800 max-w-[240px] mx-auto w-full transition hover:scale-[1.02]">
+              <div class="bg-white rounded-[28px] overflow-hidden p-3 h-[380px] flex flex-col relative text-slate-800">
+                <div class="w-20 h-4 bg-slate-900 rounded-full mx-auto mb-2 flex items-center justify-center">
+                  <div class="w-2 h-2 rounded-full bg-slate-800 mr-2"></div>
+                  <div class="w-1.5 h-1.5 rounded-full bg-indigo-950"></div>
+                </div>
+
+                <div class="flex-1 rounded-xl overflow-hidden relative border border-slate-200 flex flex-col justify-between p-2.5 bg-cover bg-center" style="background: linear-gradient(rgba(15,23,42,0.4), rgba(15,23,42,0.6)), radial-gradient(circle at center, #38bdf8 0%, #0369a1 100%);">
+                  
+                  <div class="bg-white/95 backdrop-blur-md rounded-xl p-2 shadow-lg border border-slate-100">
+                    <div class="flex items-center gap-2">
+                      <div class="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-bold">↑</div>
+                      <div>
+                        <div id="arStepInstruction" class="text-[11px] font-bold text-slate-900 leading-tight">Continue straight towards BMO Field</div>
+                        <div id="arStepDistance" class="text-[10px] text-sky-700 font-semibold">(200 m) • Paved, flat terrain</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col items-center justify-center my-auto float-anim">
+                    <div class="w-12 h-12 rounded-full bg-sky-400/30 border border-sky-300 flex items-center justify-center backdrop-blur-sm">
+                      <span class="text-3xl text-white transform -rotate-45 drop-shadow-md">➔</span>
+                    </div>
+                    <span class="text-[9px] font-bold text-white bg-slate-900/80 px-2 py-0.5 rounded-full mt-1 border border-white/20">
+                      Step-Free Path
+                    </span>
+                  </div>
+
+                  <div class="flex items-center justify-between gap-1.5">
+                    <button onclick="speakCurrentStep()" class="bg-white/90 hover:bg-white text-slate-900 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow-md transition">
+                      <span>🔊</span> Audio Cue
+                    </button>
+                    <button onclick="nextARStep()" class="bg-sky-400 hover:bg-sky-300 text-slate-950 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow-md transition">
+                      <span>Next Step</span> →
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pt-2 text-center text-[10px] text-slate-400 font-medium">
+                  AR Spatial Overlay • Real-Time Sync
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: WHEN & WHERE & HOW -->
+      <div class="lg:col-span-3 flex flex-col gap-5">
+        
+        <!-- CARD 4: WHEN -->
+        <section class="info-card bg-purple-50/80 border-2 border-purple-200/90 rounded-2xl p-4 md:p-5 transition hover:shadow-md hover:border-purple-300 relative group">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-800 text-lg shadow-inner">📅</span>
+            <div class="bg-purple-200/90 text-purple-900 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full sketch-pill">W H E N</div>
+            <span class="text-[11px] font-bold text-purple-600 ml-auto">Present → Future</span>
+            <button onclick="speakSection('when')" class="text-xs text-purple-600 hover:text-purple-900 opacity-0 group-hover:opacity-100 transition p-1" title="Read WHEN aloud">🔊</button>
+          </div>
+
+          <p class="text-[11px] text-slate-500 mb-2 font-medium">Select an event scenario:</p>
+
+          <ul class="space-y-1.5 text-[12px] text-slate-700">
+            <li>
+              <button onclick="setEventScenario('cne')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <span class="font-medium text-slate-800">CNE (Midway)</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setEventScenario('concert')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <span>BMO Field concerts</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setEventScenario('tfc')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <span>Toronto FC games</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setEventScenario('convention')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <span>Conventions</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setEventScenario('festival')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <span>Festivals</span>
+              </button>
+            </li>
+            <li>
+              <button onclick="setEventScenario('enercare')" class="w-full text-left p-1.5 rounded-lg hover:bg-white/80 transition flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <span>Enercare Centre / Coliseum</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- CARD 5: WHERE -->
+        <section class="info-card bg-amber-50/80 border-2 border-amber-200/90 rounded-2xl p-4 md:p-5 transition hover:shadow-md hover:border-amber-300 relative group">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-800 text-lg shadow-inner">📍</span>
+            <div class="bg-amber-200/90 text-amber-900 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full sketch-pill">W H E R E</div>
+            <button onclick="speakSection('where')" class="ml-auto text-xs text-amber-600 hover:text-amber-900 opacity-0 group-hover:opacity-100 transition p-1" title="Read WHERE aloud">🔊</button>
+          </div>
+
+          <div class="space-y-3 text-[12px]">
+            <div>
+              <span class="font-bold text-amber-950 uppercase tracking-wide text-[10px] bg-amber-200/80 px-2 py-0.5 rounded">Physical Scope</span>
+              <ul class="mt-1.5 space-y-1 text-slate-700 list-disc list-inside">
+                <li>Exhibition Place grounds</li>
+                <li>Transit entrances (GO / TTC)</li>
+                <li>Event venues & BMO Field</li>
+                <li>Buildings & exhibition halls</li>
+                <li>Paths, entrances, elevators & rest areas</li>
+              </ul>
+            </div>
+
+            <div class="pt-2 border-t border-amber-200/60">
+              <span class="font-bold text-amber-950 uppercase tracking-wide text-[10px] bg-amber-200/80 px-2 py-0.5 rounded">Digital Touchpoints</span>
+              <ul class="mt-1.5 space-y-1 text-slate-700 list-disc list-inside">
+                <li>Mobile wayfinding experience</li>
+                <li>Interactive accessibility map</li>
+                <li>QR codes around the grounds</li>
+                <li>Potential AR navigation</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD 6: HOW -->
+        <section class="info-card bg-emerald-50/80 border-2 border-emerald-200/90 rounded-2xl p-4 md:p-5 transition hover:shadow-md hover:border-emerald-300 relative group">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-800 text-lg shadow-inner">⚙️</span>
+            <div class="bg-emerald-200/90 text-emerald-900 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full sketch-pill">H O W</div>
+            <button onclick="speakSection('how')" class="ml-auto text-xs text-emerald-600 hover:text-emerald-900 opacity-0 group-hover:opacity-100 transition p-1" title="Read HOW aloud">🔊</button>
+          </div>
+
+          <ol class="space-y-2 text-[12px] text-slate-700">
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">1. Research:</strong> Review maps, signage, accessibility info.</li>
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">2. Observe:</strong> Identify navigation issues and accessibility barriers.</li>
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">3. User Research:</strong> Understand users' accessibility needs.</li>
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">4. Map the Journey:</strong> Exhibition GO → BMO Field → Seat.</li>
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">5. Design:</strong> Create accessible map & mobile interface in Figma.</li>
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">6. Prototype:</strong> Test routes, accessibility filters & directions.</li>
+            <li class="p-1.5 rounded-lg hover:bg-white/80 transition"><strong class="font-semibold text-slate-900">7. Future Exploration:</strong> Investigate AR navigation & event features.</li>
+          </ol>
+        </section>
+
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="mt-8 pt-6 border-t border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
+      <div class="text-base tracking-widest text-slate-500">BDES4701</div>
+      <div class="text-xl md:text-2xl font-bold italic font-sketch text-slate-800">Michelle Miyata</div>
+    </footer>
+
+  </main>
+
+  <!-- Interactive Logic -->
+  <script>
+    let isHighContrast = false;
+    let activeFilter = 'stepfree';
+    let currentARStep = 0;
+    let synth = window.speechSynthesis;
+
+    const arSteps = [
+      {
+        instruction: "Continue straight towards BMO Field",
+        distance: "(200 m) • Paved, flat terrain",
+        cue: "Continue straight on Princes' Boulevard for 200 meters. The pavement is flat and step-free."
+      },
+      {
+        instruction: "Turn right onto BMO Field Plaza Ramp",
+        distance: "(50 m) • Gentle slope with handrails",
+        cue: "In 50 meters, take the wide accessible ramp on your right towards Gate 1."
+      },
+      {
+        instruction: "Arrive at Gate 1 Accessible Entrance",
+        distance: "Destination reached • Automated power doors",
+        cue: "You have arrived at BMO Field Gate 1 Accessible Entrance. Staff assistance is available on your left."
+      }
+    ];
+
+    function toggleHighContrast() {
+      isHighContrast = !isHighContrast;
+      document.body.classList.toggle('high-contrast-mode', isHighContrast);
+      document.getElementById('contrastToggleBtn').classList.toggle('bg-yellow-400', isHighContrast);
+    }
+
+    function setPersonaPreset(type) {
+      ['mobility', 'sensory', 'family'].forEach(t => {
+        const btn = document.getElementById(`btn-preset-${t}`);
+        if (btn) btn.className = "px-2.5 py-1 rounded-full font-medium transition text-slate-600 hover:bg-slate-100";
+      });
+
+      const activeBtn = document.getElementById(`btn-preset-${type}`);
+      if (activeBtn) activeBtn.className = "px-2.5 py-1 rounded-full font-medium transition bg-sky-100 text-sky-800 font-bold shadow-xs";
+
+      if (type === 'mobility') {
+        toggleFilter('stepfree', true);
+        document.getElementById('quietZoneLayer').classList.add('opacity-0');
+        showPinDetails('bmo-gate', 'BMO Field Gate 1', 'Step-Free Ramp & Power Assisted Doors', '♿ Mobility Route Active');
+        updateRoutePath("M 360,75 L 340,110 L 290,140 L 250,180 L 210,195", "#0284c7");
+      } else if (type === 'sensory') {
+        toggleFilter('quiet', true);
+        document.getElementById('quietZoneLayer').classList.remove('opacity-0');
+        showPinDetails('quiet-zone', 'Bandshell Quiet Sensory Garden', 'Low-sensory relief zone with shade & noise reduction', '🎧 Sensory Route Active');
+        updateRoutePath("M 360,75 L 380,130 L 410,200 L 340,265", "#8b5cf6");
+      } else if (type === 'family') {
+        toggleFilter('rest', true);
+        document.getElementById('quietZoneLayer').classList.add('opacity-0');
+        showPinDetails('washroom-midway', 'Midway Family Restroom', 'Equipped with baby changing stations & stroller parking', '👨‍👩‍👧 Family Route Active');
+        updateRoutePath("M 360,75 L 320,130 L 310,180", "#f59e0b");
+      }
+    }
+
+    function resetAllFilters() {
+      ['mobility', 'sensory', 'family'].forEach(t => {
+        const btn = document.getElementById(`btn-preset-${t}`);
+        if (btn) btn.className = "px-2.5 py-1 rounded-full font-medium transition text-slate-600 hover:bg-slate-100";
+      });
+      document.getElementById('quietZoneLayer').classList.add('opacity-0');
+      document.getElementById('crowdHeatmapLayer').classList.add('opacity-0');
+      dismissPinToast();
+      updateRoutePath("M 360,75 L 340,110 L 290,140 L 250,180 L 210,195", "#0284c7");
+    }
+
+    function toggleFilter(filterName, forceActive = false) {
+      activeFilter = filterName;
+      const filters = ['stepfree', 'quiet', 'rest', 'simple', 'contrast', 'washroom'];
+      
+      filters.forEach(f => {
+        const el = document.getElementById(`filter-${f}`);
+        if (!el) return;
+        if (f === filterName) {
+          el.className = "flex flex-col items-center justify-center p-1.5 rounded-lg border bg-sky-100 border-sky-400 text-sky-900 font-bold shadow-sm transition";
+        } else {
+          el.className = "flex flex-col items-center justify-center p-1.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-600 font-medium transition hover:bg-slate-100";
+        }
+      });
+
+      if (filterName === 'quiet') {
+        document.getElementById('quietZoneLayer').classList.remove('opacity-0');
+      } else {
+        document.getElementById('quietZoneLayer').classList.add('opacity-0');
+      }
+
+      if (filterName === 'contrast') toggleHighContrast();
+    }
+
+    function setEventScenario(eventName) {
+      const badge = document.getElementById('activeEventBadge');
+      const heatmap = document.getElementById('crowdHeatmapLayer');
+
+      if (eventName === 'cne') {
+        badge.innerText = "🎡 CNE Active (Midway Crowd Density)";
+        badge.className = "bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300";
+        heatmap.classList.remove('opacity-0');
+        selectVenue('midway');
+      } else if (eventName === 'tfc' || eventName === 'concert') {
+        badge.innerText = "⚽ BMO Field Match / Concert Mode";
+        badge.className = "bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300";
+        heatmap.classList.remove('opacity-0');
+        selectVenue('bmo');
+      } else {
+        badge.innerText = "🏛️ Enercare Exhibition / Convention";
+        badge.className = "bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-300";
+        heatmap.classList.add('opacity-0');
+        selectVenue('enercare');
+      }
+    }
+
+    function showPinDetails(id, title, desc, badgeText) {
+      const toast = document.getElementById('pinToast');
+      document.getElementById('pinTitle').innerText = title;
+      document.getElementById('pinDesc').innerText = desc;
+      document.getElementById('pinTypeBadge').innerText = badgeText;
+      toast.classList.remove('-translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+    }
+
+    function dismissPinToast() {
+      const toast = document.getElementById('pinToast');
+      toast.classList.add('-translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+    }
+
+    function selectVenue(venue) {
+      if (venue === 'bmo') {
+        showPinDetails('bmo-gate', 'BMO Field Stadium', 'Main sports & concert venue. Accessible entrances at Gate 1 and West Concourse.', 'Venue Selected');
+        selectDestination('BMO Field Accessible Entrance', 8, 'Step-free route');
+      } else if (venue === 'midway') {
+        showPinDetails('midway', 'CNE Midway Grounds', 'Rides, games, sensory chill areas, and wide accessible asphalt boardwalks.', 'Venue Selected');
+        selectDestination('CNE Midway & Carnival', 5, 'Low-crowd bypass');
+      } else if (venue === 'enercare') {
+        showPinDetails('enercare', 'Enercare Centre', '1 Million sq. ft exhibition halls with tactile floor paths and glass elevators.', 'Venue Selected');
+        selectDestination('Enercare Centre Exhibition Hall', 7, 'Direct elevator connection');
+      } else if (venue === 'coliseum') {
+        showPinDetails('coliseum', 'Coca-Cola Coliseum', 'Historic arena venue with wheelchair seating risers and low-glare lighting.', 'Venue Selected');
+        selectDestination('Coca-Cola Coliseum Arena', 6, 'Level entry');
+      } else if (venue === 'transit') {
+        showPinDetails('transit', 'Exhibition GO / TTC Station', 'Accessible transit hub connecting Lakeshore West train and 509/511 streetcars.', 'Transit Hub');
+      }
+    }
+
+    function updateRoutePath(d, color) {
+      const line = document.getElementById('activeRouteLine');
+      if (line) {
+        line.setAttribute('d', d);
+        line.setAttribute('stroke', color);
+      }
+    }
+
+    function selectDestination(name, minutes, subtext) {
+      document.getElementById('destTitle').innerText = name;
+      document.getElementById('destTime').innerText = `⏱️ ${minutes} min (${minutes * 75} m)`;
+      document.getElementById('mobileSearchInput').value = name;
+      currentARStep = 0;
+      updateARUI();
+    }
+
+    function navigateHere() {
+      setMobileScreen(2);
+      dismissPinToast();
+    }
+
+    function simulateRouteCalculation() {
+      const btn = document.getElementById('routeBtnText');
+      btn.innerText = "Calculating ♿...";
+      setTimeout(() => {
+        btn.innerText = "Route Active!";
+        setMobileScreen(2);
+        setTimeout(() => { btn.innerText = "Find My Route"; }, 2000);
+      }, 600);
+    }
+
+    function setMobileScreen(screenNum) {
+      const phones = document.querySelectorAll('.phone-mockup');
+      phones.forEach((p, idx) => {
+        if (idx === screenNum - 1) {
+          p.classList.add('ring-4', 'ring-sky-400');
+        } else {
+          p.classList.remove('ring-4', 'ring-sky-400');
+        }
+      });
+    }
+
+    function startARNavigation() {
+      setMobileScreen(3);
+      speakCurrentStep();
+    }
+
+    function nextARStep() {
+      currentARStep = (currentARStep + 1) % arSteps.length;
+      updateARUI();
+      speakCurrentStep();
+    }
+
+    function updateARUI() {
+      const step = arSteps[currentARStep];
+      document.getElementById('arStepInstruction').innerText = step.instruction;
+      document.getElementById('arStepDistance').innerText = step.distance;
+    }
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      synth.speak(utterance);
+    }
+
+    function speakCurrentStep() {
+      const step = arSteps[currentARStep];
+      speakText(step.cue);
+    }
+
+    function speakSection(section) {
+      const texts = {
+        why: "Why: I want to improve navigation at Exhibition Place for visitors with various accessibility needs.",
+        who: "Who: People with mobility needs, people with cognitive sensitivities, visual or hearing accessibility needs, older adults, and families.",
+        what: "What: An accessible digital wayfinding system at Exhibition Place that assists visitors in navigating routes according to their mobility needs.",
+        when: "When: Present and future events including CNE, BMO Field concerts, Toronto FC games, and conventions.",
+        where: "Where: Exhibition Place physical grounds, transit entrances, and digital mobile touchpoints.",
+        how: "How: Seven-step methodology spanning research, observation, user research, journey mapping, Figma design, prototyping, and future AR exploration."
+      };
+      speakText(texts[section]);
+    }
+
+    function playOverviewAudio() {
+      const btnText = document.getElementById('audioText');
+      if (synth.speaking) {
+        synth.cancel();
+        btnText.innerText = "Read Case Study";
+        return;
+      }
+      btnText.innerText = "Playing Audio...";
+      const fullOverview = "Exhibition Place Wayfinding Map by Michelle Miyata. An inclusive digital wayfinding system designed to empower visitors with mobility and sensory accessibility needs across Exhibition Place grounds, BMO Field, and Enercare Centre.";
+      speakText(fullOverview);
+      const checkSpeaking = setInterval(() => {
+        if (!synth.speaking) {
+          btnText.innerText = "Read Case Study";
+          clearInterval(checkSpeaking);
+        }
+      }, 500);
+    }
+
+    function highlightFeature(feature) {
+      if (feature === 'crowds') {
+        document.getElementById('crowdHeatmapLayer').classList.toggle('opacity-0');
+      } else if (feature === 'entrances') {
+        showPinDetails('bmo-gate', 'Accessible Entrances Highlighted', 'All step-free ramps, elevators, and wide power-assisted doors are marked on the map.', 'Entrances Highlighted');
+      }
+    }
+  </script>
+</body>
+</html>
